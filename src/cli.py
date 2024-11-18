@@ -10,12 +10,14 @@ import time
 import sys
 import traceback
 
+from collections import defaultdict
+
 
 __doc__ = """
 Read one or more log files, filter entries by IP address, method, protocol, or status and write applicable entries to a CSV file.
 
 Example:
-    logparse -f ../data/data-1.log ../data/data-2.log -k method -e POST
+    logparse -f ../data/* -k method --filter status=404 method=GET
 """
 
 __version__ = "0.0.1"
@@ -27,10 +29,15 @@ def get_opts():
     parser.add_argument("-d", "--verbose", default=logging.INFO, action="store_const", const=logging.DEBUG, help="enable debug logging")
     parser.add_argument("-v", "--version", action="version", version=__version__, help="show version and exit")
     parser.add_argument("-t", "--time", dest="time", action="store_true", help="include execution time")
-    parser.add_argument("-f", "--files", metavar="FILE", nargs="+", help="input file(s)")
+    parser.add_argument("-f", "--files", metavar="FILE", nargs="+", help="input file(s)", required=True)
     parser.add_argument("-o", "--output", help="output file name (default: output.csv)", default="output.csv")
-    parser.add_argument("-k", "--filter_key", type=str, help="key to filter logs by; supported keys: ipaddr, method, protcol, status")
-    parser.add_argument("-e", "--filter_value", type=str, help="value to filter logs by")
+    parser.add_argument(
+        "--filter",
+        metavar="KEY=VALUE",
+        nargs="+",
+        help=f"Specify key-value pairs. Allowed keys: ipaddr, method, protcol, status"
+    )
+
 
     args = parser.parse_args()
     logging.basicConfig(level=args.verbose)
@@ -49,7 +56,7 @@ def parse_log_data(log: str) -> list:
     Returns:
         list: list of dictionaries representing log entries
     """
-    pattern = '''(?P<ip_addr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}?) - - \[(?P<timestamp>\d{1,2}\/\w{3,5}\/\d{4}:\d{2}:\d{2}:\d{2} \+\d{4}?)] "(?P<method>\w{3,6}?) (?P<path>\S+?) (?P<protocol>\S+?)" (?P<status>\d{3}?) (?P<bytes>\d+|\-?) "(?P<referrer>\S+?)" "(?P<user_agent>.*?)"'''
+    pattern = '''(?P<ipaddr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}?) - - \[(?P<timestamp>\d{1,2}\/\w{3,5}\/\d{4}:\d{2}:\d{2}:\d{2} \+\d{4}?)] "(?P<method>\w{3,6}?) (?P<path>\S+?) (?P<protocol>\S+?)" (?P<status>\d{3}?) (?P<bytes>\d+|\-?) "(?P<referrer>\S+?)" "(?P<user_agent>.*?)"'''
     return [m.groupdict() for m in re.finditer(pattern, log)]
 
 
@@ -77,24 +84,62 @@ def write_output_file(source: str, data: list, output_file="output.csv") -> None
             writer.writerow(row)
 
 
-def read_files(file_list: list, filter_key: str | None, filter_value: str | None, output_file: str | None) -> None:
+def filter_data(file_name: str, data:list, filter_list: list)-> list:
+    """filter log entries by key/value pairs
+
+    Args:
+        file_name (str): name of source log file
+        data (list): list of dictionaries containing log entries
+        filter_value (list | None): list of key/value pairs to filter log entries on
+
+    Returns:
+        list: list of dictionaries containing filtered log entries
+    """
+
+    # clean filters
+    filter_key_list: list = ["ipaddr", "method", "protcol", "status"]
+    filter_dict = {}
+    for pair in filter_list:
+        if '=' not in pair:
+            continue
+        key, value = pair.split('=')
+        if key not in filter_key_list:
+            continue       
+        filter_dict[key] = value
+
+    # Preprocess into an index (use tuple for hashable keys)
+    index = defaultdict(list)
+    for entry in data:
+        for key, value in entry.items():
+            index[(key, value)].append(entry)
+
+    # Find matches that satisfy ALL filters
+    filtered_data = [
+        entry
+        for entry in data
+        if all((key, value) in index and entry in index[(key, value)] for key, value in filter_dict.items())
+    ]
+
+    logging.info(f"found {len(filtered_data)} matches in {file_name}")
+    return filtered_data
+
+
+def read_files(file_list: list, filter_list: list | None, output_file: str | None) -> None:
     """read data from a list of log files; filter data based on key/value, and write matching log entries to a csv file
 
     Args:
         file_list (list): list of log file names to read/parse/filter
         filter_key (str | None): key to filter log entries on
-        filter_value (str | None): value (of key) to filter log entries on
+        filter_value (list | None): list of key/value pairs to filter log entries on
     """
-    log_data = []
+    filter_key_list: list = ["ipaddr", "method", "protcol", "status"]
+    log_data: list = []
     for file_name in file_list:
         with open(file_name, "r") as f:
-            log_data = parse_log_data(f.read())
-            if filter_key and filter_value:
-                filtered_data = [d for d in log_data if d[filter_key] == filter_value]
-                logging.info(f"{file_name}: found {len(filtered_data)} log entries where {filter_key} is {filter_value}")
-                write_output_file(source=file_name, data=filtered_data, output_file=output_file)
-            else:
-                write_output_file(source=file_name, data=log_data, output_file=output_file)
+            data = parse_log_data(f.read())
+            if filter_list:
+                data = filter_data(file_name, data, filter_list)
+            write_output_file(source=file_name, data=data, output_file=output_file)
 
 
 def main():
@@ -103,8 +148,7 @@ def main():
         if opts.time:
             start = datetime.datetime.now()
         
-        # call function(s) to do work here
-        read_files(opts.files, opts.filter_key, opts.filter_value, opts.output)
+        read_files(opts.files, opts.filter, opts.output)
 
         if opts.time:
             end = datetime.datetime.now()
