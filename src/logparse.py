@@ -20,7 +20,7 @@ Example:
     logparse -f ../data/* -k method --filter status=404 method=GET
 """
 
-__version__ = "0.0.1"
+__version__ = "0.0.5"
 
 
 def get_opts():
@@ -31,13 +31,7 @@ def get_opts():
     parser.add_argument("-t", "--time", dest="time", action="store_true", help="include execution time")
     parser.add_argument("-f", "--files", metavar="FILE", nargs="+", help="input file(s)", required=True)
     parser.add_argument("-o", "--output", help="output file name (default: output.csv)", default="output.csv")
-    parser.add_argument(
-        "--filter",
-        metavar="KEY=VALUE",
-        nargs="+",
-        help=f"Specify key-value pairs. Allowed keys: ipaddr, method, protcol, status"
-    )
-
+    parser.add_argument("--filter", metavar="KEY=VALUE", nargs="+", help=f"Specify key-value pairs. Allowed keys: ipaddr, method, protcol, status")
 
     args = parser.parse_args()
     logging.basicConfig(level=args.verbose)
