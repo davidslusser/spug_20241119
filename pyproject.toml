@@ -1,6 +1,11 @@
 [build-system]
-requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+requires = [
+    "build",
+    "setuptools >= 67.7.2",
+	"setuptools_scm >= 7.1",
+	"wheel >= 0.40.0"
+]
 
 [project]
 name = "logparse"
@@ -16,8 +21,6 @@ dependencies = []
 homepage = "https://github.com/davidslusser/spug_20241119"
 repository = "https://github.com/davidslusser/spug_20241119"
 
-[tool.setuptools.packages.find]
-where = ["src"]
 
 [project.scripts]
 logparse = "logparse:main"
