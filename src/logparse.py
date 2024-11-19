@@ -17,10 +17,10 @@ __doc__ = """
 Read one or more log files, filter entries by IP address, method, protocol, or status and write applicable entries to a CSV file.
 
 Example:
-    logparse -f ../data/* -k method --filter status=404 method=GET
+    logparse -f data/* --filter status=404 method=GET
 """
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 
 
 def get_opts():

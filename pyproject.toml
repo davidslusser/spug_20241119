@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "logparse"
+version = "0.0.6"
+description = "A command-line tool for parsing log files"
+authors = [
+    { name = "David Slusser", email = "dbslusser@gmail.com" }
+]
+license = { file = "LICENSE" }
+dependencies = []
+
+[project.urls]
+homepage = "https://github.com/davidslusser/spug_20241119"
+repository = "https://github.com/davidslusser/spug_20241119"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+logparse = "logparse:main"
